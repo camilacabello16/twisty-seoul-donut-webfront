@@ -1,10 +1,17 @@
 // Dữ liệu giả lập cho bản demo (không có backend).
 
+// Ngày theo giờ địa phương (toISOString dùng UTC nên lệch 1 ngày ở múi giờ UTC+).
+const pad = (n) => String(n).padStart(2, '0')
+export const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const parseISO = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
 export const dayISO = (offset = 0) => {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() + offset)
-  return d.toISOString().slice(0, 10)
+  return toISO(d)
 }
 
 export const branches = [
@@ -163,7 +170,7 @@ export const initialOrders = (() => {
   let n = 1000
   for (const b of Object.keys(volume)) {
     for (let day = -29; day <= 0; day++) {
-      const weekend = [0, 6].includes(new Date(dayISO(day)).getDay())
+      const weekend = [0, 6].includes(parseISO(dayISO(day)).getDay())
       const count = Math.round(volume[b] * (weekend ? 1.4 : 1) * (0.8 + rand() * 0.4))
       for (let k = 0; k < count; k++) {
         const lines = 1 + Math.floor(rand() * 3)
@@ -192,4 +199,18 @@ export const initialOrders = (() => {
     }
   }
   return out.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
+})()
+
+// Lịch sử nhập kho nguyên liệu (mẫu): mỗi chi nhánh nhập vài lần mỗi tuần
+export const initialStockLog = (() => {
+  const out = []
+  const sizes = { i1: 25, i2: 6, i3: 20, i4: 120, i5: 20, i6: 8, i7: 4, i8: 6 }
+  ;['b1', 'b2', 'b3'].forEach((b, bi) => {
+    for (let day = -45; day <= 0; day++) {
+      if ((day + 100 + bi) % 3 !== 0) continue
+      const picks = ingredients.filter((_, i) => (i + day + 100 + bi) % 4 === 0)
+      picks.forEach((ing) => out.push({ id: `sl-${b}-${day}-${ing.id}`, branch: b, ing: ing.id, qty: sizes[ing.id], date: dayISO(day) }))
+    }
+  })
+  return out
 })()

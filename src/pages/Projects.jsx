@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Pencil, Plus } from 'lucide-react'
 import { useApp } from '../store'
 import { Badge, DriveField, DriveLink, Empty, Modal, PageHeader } from '../components/ui'
+import { dayISO } from '../data'
 
 const tone = { active: 'info', paused: 'warn', done: 'ok' }
 
@@ -81,7 +82,7 @@ function ProjectForm({ project, onClose, onSave }) {
     name: project ? L(project.name) : '',
     desc: project ? L(project.desc) : '',
     owner: project?.owner || employees.find((e) => visibleBranchIds.includes(e.branch))?.id,
-    start: project?.start || new Date().toISOString().slice(0, 10),
+    start: project?.start || dayISO(0),
     end: project?.end || '',
     status: project?.status || 'active',
     branches: project?.branches || visibleBranchIds,

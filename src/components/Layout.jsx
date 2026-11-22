@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
-  Boxes, CalendarCheck2, ChefHat, ClipboardList, Cookie, FileText, FolderKanban, KanbanSquare, LayoutDashboard, LogOut, Menu, Receipt, Settings, Store, Users, Wallet, X,
+  Boxes, CalendarCheck2, CalendarDays, ChefHat, ClipboardList, Cookie, FileText, FolderKanban, KanbanSquare, LayoutDashboard, LogOut, Menu, Receipt, Settings, Store, Users, Wallet, X,
 } from 'lucide-react'
 import { useApp } from '../store'
 
 export const NAV = [
   { to: '/', key: 'nav.dashboard', icon: LayoutDashboard, roles: ['owner', 'manager'], end: true },
   { to: '/projects', key: 'nav.projects', icon: FolderKanban, roles: ['owner', 'manager'] },
+  { to: '/calendar', key: 'nav.calendar', icon: CalendarDays, roles: ['owner', 'manager'] },
   { to: '/tasks', key: 'nav.tasks', icon: KanbanSquare, roles: ['owner', 'manager'] },
   { to: '/hr', key: 'nav.hr', icon: Users, roles: ['owner', 'manager'] },
   { to: '/products', key: 'nav.products', icon: Cookie, roles: ['owner', 'manager'] },

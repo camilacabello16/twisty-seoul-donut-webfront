@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ExternalLink, Link2, X } from 'lucide-react'
 import { useApp } from '../store'
 
@@ -49,6 +49,55 @@ export function Modal({ title, onClose, children, footer }) {
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
+    </div>
+  )
+}
+
+// Menu chuột phải: items = [{ key, label, icon, onSelect }]
+export function ContextMenu({ x, y, title, items, onClose }) {
+  const ref = useRef(null)
+  const [pos, setPos] = useState({ left: x, top: y })
+
+  useLayoutEffect(() => {
+    const r = ref.current.getBoundingClientRect()
+    setPos({
+      left: Math.max(8, Math.min(x, window.innerWidth - r.width - 8)),
+      top: Math.max(8, Math.min(y, window.innerHeight - r.height - 8)),
+    })
+    ref.current.querySelector('button')?.focus()
+  }, [x, y])
+
+  useEffect(() => {
+    const close = () => onClose()
+    const onDown = (e) => !ref.current?.contains(e.target) && onClose()
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('resize', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('blur', close)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+        window.removeEventListener('resize', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('blur', close)
+    }
+  }, [onClose])
+
+  const onKey = (e) => {
+    const btns = [...ref.current.querySelectorAll('button')]
+    const i = btns.indexOf(document.activeElement)
+    if (e.key === 'Escape') { e.preventDefault(); onClose() }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); btns[(i + 1) % btns.length].focus() }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); btns[(i - 1 + btns.length) % btns.length].focus() }
+  }
+
+  return (
+    <div ref={ref} className="ctx-menu" role="menu" aria-label={title} style={pos} onKeyDown={onKey} onContextMenu={(e) => e.preventDefault()}>
+      {title && <div className="ctx-title">{title}</div>}
+      {items.map(({ key, label, icon: Icon, onSelect }) => (
+        <button key={key} role="menuitem" className="ctx-item" onClick={() => { onSelect(); onClose() }}>
+          {Icon && <Icon size={16} aria-hidden />} {label}
+        </button>
+      ))}
     </div>
   )
 }

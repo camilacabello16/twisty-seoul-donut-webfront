@@ -33,6 +33,7 @@ export const dict = {
   // Điều hướng
   'nav.dashboard': d('Tổng quan', 'Overview'),
   'nav.projects': d('Project', 'Projects'),
+  'nav.calendar': d('Lịch', 'Calendar'),
   'nav.tasks': d('Công việc', 'Tasks'),
   'nav.hr': d('Nhân sự', 'People'),
   'nav.products': d('Sản phẩm & công thức', 'Products & recipes'),
@@ -82,6 +83,26 @@ export const dict = {
   'prio.high': d('Cao', 'High'),
   'prio.medium': d('Vừa', 'Medium'),
   'prio.low': d('Thấp', 'Low'),
+
+  // Lịch
+  'cal.sub': d('Công việc theo hạn từng ngày. Bấm vào một ngày để xem chi tiết. Bấm chuột phải hoặc bấm đúp để thêm công việc.', 'Tasks by due date. Click a day for details. Right-click or double-click to add a task.'),
+  'cal.prev': d('Tháng trước', 'Previous month'),
+  'cal.next': d('Tháng sau', 'Next month'),
+  'cal.pickMonth': d('Chọn tháng', 'Pick a month'),
+  'cal.today': d('Hôm nay', 'Today'),
+  'cal.more': d('+{n} việc nữa', '+{n} more'),
+  'cal.taskCount': d('{n} công việc', '{n} task(s)'),
+  'cal.detail': d('Chi tiết ngày', 'Day details'),
+  'cal.orders': d('Số đơn', 'Orders'),
+  'cal.made': d('Sản phẩm đã làm', 'Items made'),
+  'cal.imported': d('Lần nhập kho', 'Stock receipts'),
+  'cal.noTasks': d('Không có công việc đến hạn.', 'No tasks due.'),
+  'cal.staff': d('Nhân sự đi làm', 'Staff working'),
+  'cal.off': d('Nghỉ', 'Off'),
+  'cal.dayoff': d('Nghỉ tuần', 'Day off'),
+  'cal.madeTitle': d('Sản phẩm đã làm', 'Items made'),
+  'cal.importTitle': d('Nhập nguyên liệu', 'Ingredients received'),
+  'cal.future': d('Chưa đến ngày này.', 'This day has not happened yet.'),
 
   // Project
   'proj.sub': d('Mỗi project gồm nhiều công việc. Bấm "Xem công việc" để mở bảng công việc của project.', 'Each project holds many tasks. Use "View tasks" to open its board.'),

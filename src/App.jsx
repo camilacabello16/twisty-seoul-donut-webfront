@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import Projects from './pages/Projects'
+import Calendar from './pages/Calendar'
 import HR from './pages/HR'
 import Products from './pages/Products'
 import Inventory from './pages/Inventory'
@@ -16,7 +17,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 
 const pages = {
-  '/': Dashboard, '/projects': Projects, '/tasks': Tasks, '/hr': HR, '/products': Products, '/inventory': Inventory, '/production': Production,
+  '/': Dashboard, '/calendar': Calendar, '/projects': Projects, '/tasks': Tasks, '/hr': HR, '/products': Products, '/inventory': Inventory, '/production': Production,
   '/orders': Orders, '/finance': Finance, '/requests': Requests, '/reports': Reports, '/settings': Settings,
 }
 

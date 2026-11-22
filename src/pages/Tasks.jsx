@@ -120,7 +120,7 @@ export default function Tasks() {
   )
 }
 
-function TaskForm({ task, people, projects, defaultProject, branch, onClose, onSave, onDelete }) {
+export function TaskForm({ task, people, projects, defaultProject, defaultDue = '', branch, branchOptions, onClose, onSave, onDelete }) {
   const { t, L } = useApp()
   const [f, setF] = useState(() => ({
     title: task ? L(task.title) : '',
@@ -128,8 +128,9 @@ function TaskForm({ task, people, projects, defaultProject, branch, onClose, onS
     assignee: task?.assignee || people[0]?.id,
     priority: task?.priority || 'medium',
     status: task?.status || 'todo',
-    due: task?.due || '',
+    due: task?.due || defaultDue,
     drive: task?.drive || '',
+    branch: task?.branch || branch,
   }))
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   return (
@@ -142,11 +143,16 @@ function TaskForm({ task, people, projects, defaultProject, branch, onClose, onS
         <button
           className="btn btn-primary"
           disabled={!f.title.trim()}
-          onClick={() => onSave({ ...f, title: { vi: f.title, en: f.title }, ...(task ? {} : { branch }) })}
+          onClick={() => onSave({ ...f, title: { vi: f.title, en: f.title } })}
         >{t('common.save')}</button>
       </>}
     >
       <label className="field"><span>{t('tasks.title')}</span><input value={f.title} onChange={set('title')} /></label>
+      {branchOptions && !task && (
+        <label className="field"><span>{t('branch.label')}</span>
+          <select value={f.branch} onChange={set('branch')}>{branchOptions.map((b) => <option key={b.id} value={b.id}>{L(b.name)}</option>)}</select>
+        </label>
+      )}
       <div className="row2">
         <label className="field"><span>{t('tasks.project')}</span>
           <select value={f.project} onChange={set('project')}>{projects.map((p) => <option key={p.id} value={p.id}>{L(p.name)}</option>)}</select>

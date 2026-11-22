@@ -15,6 +15,7 @@ import {
   products as seedProducts,
 } from './data'
 import { dict } from './i18n'
+import { toISO, parseISO, initialStockLog } from './data'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -45,6 +46,7 @@ export function AppProvider({ children }) {
   const [requests, setRequests] = useState(initialRequests)
   const [tasks, setTasks] = useState(initialTasks)
   const [projects, setProjects] = useState(initialProjects)
+  const [stockLog, setStockLog] = useState(initialStockLog)
   const [employees, setEmployees] = useState(seedEmployees)
   const [ingStock, setIngStock] = useState(initialIngredientStock)
   const [prodStock, setProdStock] = useState(initialProductStock)
@@ -79,7 +81,7 @@ export function AppProvider({ children }) {
     [lang],
   )
   const dateFmt = useCallback(
-    (iso) => (iso ? new Date(iso).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-GB', { day: '2-digit', month: '2-digit' }) : '—'),
+    (iso) => (iso ? parseISO(iso).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-GB', { day: '2-digit', month: '2-digit' }) : '—'),
     [lang],
   )
 
@@ -118,7 +120,7 @@ export function AppProvider({ children }) {
       const o = {
         ...order,
         id,
-        date: today.toISOString().slice(0, 10),
+        date: toISO(today),
         time: today.toTimeString().slice(0, 5),
         status: 'done',
         by: employees.find((e) => e.name === account.name)?.id || 'e2',
@@ -153,11 +155,13 @@ export function AppProvider({ children }) {
     addEmployee: (e) => setEmployees((prev) => [...prev, { workdays: 0, bonus: 0, deduction: 0, ...e, id: `e${prev.length + 1}` }]),
     updateEmployee: (id, patch) => setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))),
     setWorkdays: (id, workdays) => setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, workdays } : e))),
-    importStock: (branch, ingId, qty, expiry) =>
+    importStock: (branch, ingId, qty, expiry) => {
       setIngStock((prev) => ({
         ...prev,
         [branch]: { ...prev[branch], [ingId]: { qty: (prev[branch][ingId]?.qty || 0) + qty, expiry } },
-      })),
+      }))
+      setStockLog((prev) => [...prev, { id: `sl-${prev.length + 1}`, branch, ing: ingId, qty, date: toISO(new Date()) }])
+    },
     recordProduction: (rowId, qty) => {
       const row = production.find((r) => r.id === rowId)
       if (!row) return
@@ -184,7 +188,7 @@ export function AppProvider({ children }) {
     lang, setLang, t, L, money, dateFmt,
     account, role, login, logout,
     allowedBranches, canViewAll, activeBranch, setBranch, visibleBranchIds, inBranch,
-    accounts, orders, requests, tasks, projects, employees, ingStock, prodStock, production, reports, products, ingredients,
+    accounts, orders, requests, tasks, projects, stockLog, employees, ingStock, prodStock, production, reports, products, ingredients,
     canEditCatalog, actions, toast, notify,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

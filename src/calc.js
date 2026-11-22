@@ -1,4 +1,4 @@
-import { FIXED_COSTS, STANDARD_DAYS, dayISO, ingredients, products } from './data'
+import { FIXED_COSTS, STANDARD_DAYS, dayISO, ingredients, parseISO, products } from './data'
 
 export const netSalary = (e) => Math.round((e.base / STANDARD_DAYS) * e.workdays) + e.allowance + e.bonus - e.deduction
 
@@ -28,6 +28,42 @@ export function lastDays(n, orders, branchIds, locale) {
   return Array.from({ length: n }, (_, i) => {
     const date = dayISO(i - (n - 1))
     const value = sum(orders.filter((o) => o.date === date && branchIds.includes(o.branch) && valid(o)), (o) => o.total)
-    return { date, value, label: new Date(date).toLocaleDateString(locale, { weekday: 'short' }) }
+    return { date, value, label: parseISO(date).toLocaleDateString(locale, { weekday: 'short' }) }
   })
+}
+
+// Nhân sự đi làm theo ngày. Chưa có chấm công nên lịch này suy ra từ:
+// - mỗi nhân viên nghỉ cố định 1 ngày/tuần (xoay vòng theo thứ tự),
+// - đơn nghỉ phép đã duyệt,
+// - trạng thái "đang nghỉ phép" (từ hôm nay trở đi).
+export function attendanceOn(date, branchIds, employees, requests) {
+  const weekday = parseISO(date).getDay()
+  const today = dayISO(0)
+  const working = []
+  const off = []
+  employees.forEach((e, i) => {
+    if (!branchIds.includes(e.branch) || e.status === 'resigned') return
+    const leave = requests.some((r) => r.type === 'leave' && r.status === 'approved' && r.by === e.id && r.from <= date && date <= r.to)
+    if (leave || (e.status === 'onleave' && date >= today)) off.push({ e, why: 'leave' })
+    else if (i % 7 === weekday) off.push({ e, why: 'dayoff' })
+    else working.push(e)
+  })
+  return { working, off }
+}
+
+// Số lượng sản phẩm đã làm trong ngày: hôm nay lấy từ kế hoạch sản xuất,
+// các ngày trước suy ra từ số bán ra (mẫu), ngày sau chưa có.
+export function producedOn(date, branchIds, orders, production) {
+  const today = dayISO(0)
+  const out = {}
+  if (date > today) return out
+  if (date === today) {
+    production.filter((r) => branchIds.includes(r.branch)).forEach((r) => { if (r.done) out[r.pid] = (out[r.pid] || 0) + r.done })
+    return out
+  }
+  orders.filter((o) => branchIds.includes(o.branch) && o.date === date && valid(o)).forEach((o) =>
+    o.items.forEach((it) => { out[it.pid] = (out[it.pid] || 0) + it.qty }),
+  )
+  for (const pid of Object.keys(out)) out[pid] += (date.charCodeAt(9) + pid.charCodeAt(1)) % 4
+  return out
 }
