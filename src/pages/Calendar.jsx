@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { useState } from 'react'
+import { Plus } from 'lucide-react'
 import { useApp } from '../store'
-import { TaskForm } from './Tasks'
-import { Badge, ContextMenu, PageHeader, statusTone } from '../components/ui'
-import { dayISO, departments, parseISO, toISO } from '../data'
+import TaskForm from '../components/TaskForm'
+import TaskCalendar from '../components/TaskCalendar'
+import { Badge, PageHeader, statusTone } from '../components/ui'
+import { dayISO, departments, parseISO } from '../data'
 import { attendanceOn, producedOn, sum, valid } from '../calc'
 
 const prioRank = { high: 0, medium: 1, low: 2 }
@@ -12,96 +13,37 @@ const statusRank = { doing: 0, todo: 1, done: 2 }
 export default function Calendar() {
   const { t, L, lang, money, tasks, projects, orders, requests, employees, production, products, stockLog, ingredients, visibleBranchIds, allowedBranches, activeBranch, actions, notify } = useApp()
   const [form, setForm] = useState(null) // null | { date } | { task }
-  const [menu, setMenu] = useState(null) // null | { x, y, iso }
-  const closeMenu = useCallback(() => setMenu(null), [])
-  const myProjects = projects.filter((p) => p.branches.some((b) => visibleBranchIds.includes(b)))
   const locale = lang === 'vi' ? 'vi-VN' : 'en-GB'
   const today = dayISO(0)
   const [cursor, setCursor] = useState(() => parseISO(today.slice(0, 8) + '01'))
   const [selected, setSelected] = useState(today)
-  const monthKey = toISO(cursor).slice(0, 7)
   const all = activeBranch === 'all'
   const bname = (id) => L(allowedBranches.find((b) => b.id === id)?.name)
+  const myProjects = projects.filter((p) => p.branches.some((b) => visibleBranchIds.includes(b)))
+  const branchTasks = tasks.filter((x) => visibleBranchIds.includes(x.branch))
 
-  const goMonth = (delta) => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1))
-  const pickMonth = (value) => {
-    if (!value) return
-    const [y, m] = value.split('-').map(Number)
-    setCursor(new Date(y, m - 1, 1))
-  }
-  const goToday = () => { setCursor(parseISO(today.slice(0, 8) + '01')); setSelected(today) }
-  const pickDay = (iso) => {
-    setSelected(iso)
-    if (iso.slice(0, 7) !== monthKey) setCursor(parseISO(iso.slice(0, 8) + '01'))
-  }
-
-  // Các ô của lịch: tuần bắt đầu từ thứ 2
-  const cells = useMemo(() => {
-    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
-    const lead = (first.getDay() + 6) % 7
-    const daysIn = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate()
-    const total = Math.ceil((lead + daysIn) / 7) * 7
-    return Array.from({ length: total }, (_, i) => new Date(cursor.getFullYear(), cursor.getMonth(), 1 - lead + i))
-  }, [cursor])
-  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: 'short' }))
-
+  // Công việc đang diễn ra trong ngày (kể cả việc kéo dài nhiều ngày)
   const tasksOn = (iso) =>
-    tasks
-      .filter((x) => x.due === iso && visibleBranchIds.includes(x.branch))
+    branchTasks
+      .filter((x) => x.due && (x.start && x.start <= x.due ? x.start : x.due) <= iso && iso <= x.due)
       .sort((a, b) => statusRank[a.status] - statusRank[b.status] || prioRank[a.priority] - prioRank[b.priority])
-
-  const monthLabel = cursor.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
 
   return (
     <>
       <PageHeader title={t('nav.calendar')} sub={t('cal.sub')} />
 
-      <div className="cal-toolbar">
-        <div className="cal-nav">
-          <button className="icon-btn bordered" onClick={() => goMonth(-1)} aria-label={t('cal.prev')}><ChevronLeft size={18} /></button>
-          <h2 aria-live="polite">{monthLabel}</h2>
-          <button className="icon-btn bordered" onClick={() => goMonth(1)} aria-label={t('cal.next')}><ChevronRight size={18} /></button>
-        </div>
-        <div className="cal-tools">
-          <label className="field inline">
-            <span className="sr-only">{t('cal.pickMonth')}</span>
-            <input type="month" value={monthKey} onChange={(e) => pickMonth(e.target.value)} aria-label={t('cal.pickMonth')} />
-          </label>
-          <button className="btn" onClick={goToday}>{t('cal.today')}</button>
-        </div>
-      </div>
-
       <div className="cal-layout">
-        <section className="cal" aria-label={monthLabel}>
-          <div className="cal-head" aria-hidden>
-            {weekdays.map((w, i) => <span key={w} className={i >= 5 ? 'we' : ''}>{w}</span>)}
-          </div>
-          <div className="cal-grid">
-            {cells.map((d) => {
-              const iso = toISO(d)
-              const inMonth = iso.slice(0, 7) === monthKey
-              const list = tasksOn(iso)
-              const shown = list.slice(0, 3)
-              return (
-                <button
-                  key={iso}
-                  className={`cal-day ${inMonth ? '' : 'out'} ${iso === today ? 'today' : ''} ${iso === selected ? 'sel' : ''}`}
-                  onClick={() => pickDay(iso)}
-                  onDoubleClick={() => { pickDay(iso); setForm({ date: iso }) }}
-                  onContextMenu={(e) => { e.preventDefault(); pickDay(iso); setMenu({ x: e.clientX, y: e.clientY, iso }) }}
-                  aria-pressed={iso === selected}
-                  aria-label={`${d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}, ${t('cal.taskCount', { n: list.length })}`}
-                >
-                  <span className="cal-num">{d.getDate()}</span>
-                  {shown.map((x) => (
-                    <span key={x.id} className={`chip-task st-${x.status} pr-${x.priority}`} title={L(x.title)}>{L(x.title)}</span>
-                  ))}
-                  {list.length > shown.length && <span className="chip-more">{t('cal.more', { n: list.length - shown.length })}</span>}
-                </button>
-              )
-            })}
-          </div>
-        </section>
+        <div className="cal-main">
+          <TaskCalendar
+            tasks={branchTasks}
+            cursor={cursor}
+            setCursor={setCursor}
+            selected={selected}
+            onSelect={setSelected}
+            onCreate={(date) => setForm({ date })}
+            onEdit={(task) => setForm({ task })}
+          />
+        </div>
 
         <DayDetail
           iso={selected}
@@ -113,16 +55,6 @@ export default function Calendar() {
           onEdit={(task) => setForm({ task })}
         />
       </div>
-
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          title={parseISO(menu.iso).toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
-          onClose={closeMenu}
-          items={[{ key: 'add', label: t('tasks.add'), icon: Plus, onSelect: () => setForm({ date: menu.iso }) }]}
-        />
-      )}
 
       {form && (
         <TaskForm
@@ -136,7 +68,7 @@ export default function Calendar() {
           onSave={(data) => {
             if (form.task) actions.updateTask(form.task.id, data)
             else actions.addTask(data)
-            if (data.due) pickDay(data.due)
+            if (data.due) setSelected(data.due)
             setForm(null)
             notify(t('common.saved'))
           }}

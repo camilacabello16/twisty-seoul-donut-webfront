@@ -122,7 +122,13 @@ export const initialProjects = [
   { id: 'pr3', name: { vi: 'Khai trương quầy mới', en: 'New counter opening' }, desc: { vi: 'Chuẩn bị mặt bằng, thiết bị và nhân sự cho quầy mới.', en: 'Prepare space, equipment and staff for the new counter.' }, owner: 'e7', start: dayISO(-20), end: dayISO(14), status: 'active', branches: ['b3'], drive: '' },
 ]
 
-export const initialTasks = [
+export const addDays = (iso, n) => {
+  const d = parseISO(iso)
+  d.setDate(d.getDate() + n)
+  return toISO(d)
+}
+
+const tasksBase = [
   { id: 't1', project: 'pr1', branch: 'b1', title: { vi: 'Chốt công thức bánh xoắn vị quế', en: 'Finalise cinnamon twist recipe' }, assignee: 'e3', status: 'doing', priority: 'high', due: dayISO(3), drive: '' },
   { id: 't2', project: 'pr1', branch: 'b1', title: { vi: 'Thiết kế hộp quà Tết', en: 'Design gift box' }, assignee: 'e1', status: 'todo', priority: 'medium', due: dayISO(9), drive: 'https://drive.google.com/drive/folders/hop-qua-tet' },
   { id: 't3', project: 'pr1', branch: 'b2', title: { vi: 'Đặt trước bao bì in logo', en: 'Pre-order printed packaging' }, assignee: 'e5', status: 'todo', priority: 'high', due: dayISO(5), drive: '' },
@@ -132,7 +138,16 @@ export const initialTasks = [
   { id: 't7', project: 'pr2', branch: 'b3', title: { vi: 'Mở ca sáng', en: 'Open morning shift' }, assignee: 'e8', status: 'done', priority: 'low', due: dayISO(0), drive: '' },
   { id: 't8', project: 'pr3', branch: 'b3', title: { vi: 'Lắp tủ trưng bày bánh', en: 'Install pastry display case' }, assignee: 'e9', status: 'doing', priority: 'medium', due: dayISO(6), drive: '' },
   { id: 't9', project: 'pr3', branch: 'b3', title: { vi: 'Tuyển thêm 2 nhân viên bán hàng', en: 'Hire two sales staff' }, assignee: 'e7', status: 'todo', priority: 'medium', due: dayISO(14), drive: '' },
+  { id: 't10', project: 'pr1', branch: 'b1', title: { vi: 'Chụp ảnh menu Tết', en: 'Photograph the holiday menu' }, assignee: 'e2', status: 'todo', priority: 'medium', due: dayISO(12), drive: '' },
+  { id: 't11', project: 'pr1', branch: 'b1', title: { vi: 'Đặt nguyên liệu bánh Tết', en: 'Order holiday ingredients' }, assignee: 'e3', status: 'doing', priority: 'high', due: dayISO(-2), drive: '' },
+  { id: 't12', project: 'pr2', branch: 'b1', title: { vi: 'Kiểm tra nhiệt độ tủ mát', en: 'Check fridge temperatures' }, assignee: '', status: 'todo', priority: 'low', due: dayISO(2), drive: '' },
+  { id: 't13', project: 'pr1', branch: 'b2', title: { vi: 'Chạy thử công thức quế tại quận 3', en: 'Trial the cinnamon recipe at District 3' }, assignee: 'e6', status: 'todo', priority: 'medium', due: dayISO(10), drive: '' },
+  { id: 't14', project: 'pr2', branch: 'b1', title: { vi: 'Đào tạo nhân viên mới', en: 'Train new staff' }, assignee: 'e1', status: 'doing', priority: 'medium', due: dayISO(8), drive: '' },
 ]
+
+// Công việc kéo dài nhiều ngày: start → due (số ngày tính từ start đến due)
+const spans = { t1: 5, t2: 6, t3: 3, t5: 2, t8: 7, t9: 9, t10: 3, t11: 4, t13: 4, t14: 6 }
+export const initialTasks = tasksBase.map((t) => ({ ...t, start: addDays(t.due, -(spans[t.id] ?? 0)) }))
 
 export const initialRequests = [
   { id: 'r1', branch: 'b1', by: 'e2', type: 'leave', from: dayISO(4), to: dayISO(5), reason: { vi: 'Việc gia đình', en: 'Family matter' }, status: 'pending', drive: '' },
