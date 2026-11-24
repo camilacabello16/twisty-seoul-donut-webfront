@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Plus, Repeat } from 'lucide-react'
 import { useApp } from '../../store'
 import { Badge } from '../../components/ui'
-import { dayISO } from '../../data'
+import { addDays, dayISO } from '../../data'
+import { isRecurring, occurrences, repeatLabel } from '../../lib/recur'
+import { hasTimes, timeLabel } from '../../lib/time'
 import { STATUS_COLS } from '../../components/TaskForm'
 
 const prioTone = { high: 'bad', medium: 'warn', low: 'neutral' }
 
 export function dateRange(x, dateFmt) {
   if (!x.due) return '—'
-  return x.start && x.start !== x.due ? `${dateFmt(x.start)} – ${dateFmt(x.due)}` : dateFmt(x.due)
+  if (x.start && x.start !== x.due) return `${dateFmt(x.start)} – ${dateFmt(x.due)}`
+  return hasTimes(x) ? `${dateFmt(x.due)} ${timeLabel(x)}` : dateFmt(x.due)
 }
 
 export default function ListView({ tasks, projects, employees, onEdit, onQuickAdd }) {
@@ -51,22 +54,30 @@ export default function ListView({ tasks, projects, employees, onEdit, onQuickAd
               <>
                 {items.map((x) => {
                   const a = emp(x.assignee)
-                  const overdue = x.status !== 'done' && x.due && x.due < today
+                  const rec = isRecurring(x)
+                  // Công việc lặp lại: ô tick áp dụng cho lần lặp gần nhất chưa hoàn thành
+                  const next = rec ? occurrences(x, today, addDays(today, 400)).find((o) => !o.done) : null
+                  const shown = next || x
+                  const isDone = rec ? !next : x.status === 'done'
+                  const overdue = !rec && x.status !== 'done' && x.due && x.due < today
                   return (
                     <div key={x.id} className="lv-row">
                       <button
-                        className={`lv-check ${x.status === 'done' ? 'on' : ''}`}
-                        onClick={() => actions.updateTask(x.id, { status: x.status === 'done' ? 'todo' : 'done' })}
-                        aria-label={x.status === 'done' ? t('tasks.reopen') : t('tasks.complete')}
-                        aria-pressed={x.status === 'done'}
+                        className={`lv-check ${isDone ? 'on' : ''}`}
+                        onClick={() => (rec ? next && actions.toggleOccurrence(x.id, next.occ) : actions.updateTask(x.id, { status: x.status === 'done' ? 'todo' : 'done' }))}
+                        aria-label={isDone ? t('tasks.reopen') : t('tasks.complete')}
+                        aria-pressed={isDone}
                       ><Check size={14} aria-hidden /></button>
-                      <button className={`lv-name ${x.status === 'done' ? 'done' : ''}`} onClick={() => onEdit(x)}>{L(x.title)}</button>
+                      <button className={`lv-name ${isDone ? 'done' : ''}`} onClick={() => onEdit(x)}>
+                        {rec && <Repeat size={12} aria-hidden className="rep-ico" />}{L(x.title)}
+                        {rec && <span className="muted small"> · {repeatLabel(x.repeat, t)}</span>}
+                      </button>
                       <span className="lv-assignee">
                         {a ? <><span className="avatar sm" aria-hidden>{a.name.split(' ').pop()[0]}</span>{a.name}</> : <span className="muted">{t('tasks.unassigned')}</span>}
                       </span>
-                      <span className={`lv-date ${overdue ? 'late' : ''}`}>{dateRange(x, dateFmt)}</span>
+                      <span className={`lv-date ${overdue ? 'late' : ''}`}>{dateRange(shown, dateFmt)}</span>
                       <span><Badge tone={prioTone[x.priority]}>{t(`prio.${x.priority}`)}</Badge></span>
-                      <span className="muted small clip">{L(proj(x.project)?.name)}</span>
+                      <span className="muted small clip">{proj(x.project) ? L(proj(x.project).name) : t('tasks.noProject')}</span>
                     </div>
                   )
                 })}

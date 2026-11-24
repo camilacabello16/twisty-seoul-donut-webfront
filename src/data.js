@@ -28,12 +28,16 @@ export const accounts = [
   { id: 'u4', name: 'Phạm Gia Minh', role: 'staff', branches: ['b1'], canEditCatalog: false },
 ]
 
-export const departments = [
-  { id: 'd1', name: { vi: 'Bếp bánh', en: 'Bakery' } },
-  { id: 'd2', name: { vi: 'Quầy bán hàng', en: 'Sales counter' } },
-  { id: 'd3', name: { vi: 'Kho', en: 'Warehouse' } },
-  { id: 'd4', name: { vi: 'Quản lý', en: 'Management' } },
+// Chi nhánh -> phòng ban -> nhân sự. Mỗi chi nhánh có các phòng ban riêng.
+const deptTemplates = [
+  { key: 'd1', name: { vi: 'Bếp bánh', en: 'Bakery' } },
+  { key: 'd2', name: { vi: 'Quầy bán hàng', en: 'Sales counter' } },
+  { key: 'd3', name: { vi: 'Kho', en: 'Warehouse' } },
+  { key: 'd4', name: { vi: 'Quản lý', en: 'Management' } },
 ]
+export const initialDepartments = branches.flatMap((b) => deptTemplates.map((d) => ({ id: `${d.key}-${b.id}`, key: d.key, branch: b.id, name: d.name, head: '' })))
+
+export const TASK_CATEGORIES = ['operations', 'production', 'inventory', 'marketing', 'hr', 'other']
 
 const employeesBase = [
   { id: 'e1', name: 'Trần Minh Lan', dept: 'd4', title: { vi: 'Quản lý chi nhánh', en: 'Branch manager' }, branch: 'b1', base: 14000000, allowance: 1500000, bonus: 800000, deduction: 0, workdays: 24 },
@@ -52,6 +56,7 @@ export const employees = employeesBase.map((e, i) => ({
   phone: `09${String(10000000 + i * 1234567).slice(0, 8)}`,
   status: e.id === 'e4' ? 'onleave' : 'active',
   ...e,
+  dept: `${e.dept}-${e.branch}`,
 }))
 
 export const STANDARD_DAYS = 26
@@ -147,13 +152,37 @@ const tasksBase = [
 
 // Công việc kéo dài nhiều ngày: start → due (số ngày tính từ start đến due)
 const spans = { t1: 5, t2: 6, t3: 3, t5: 2, t8: 7, t9: 9, t10: 3, t11: 4, t13: 4, t14: 6 }
-export const initialTasks = tasksBase.map((t) => ({ ...t, start: addDays(t.due, -(spans[t.id] ?? 0)) }))
+const noRepeat = { freq: 'none', interval: 1, weekdays: [], until: '' }
+const extras = {
+  t1: { category: 'production', estimate: 6, dept: 'd1', description: 'Thử 3 tỉ lệ quế, chọn tỉ lệ cho vị cân bằng.', note: 'Cần hỏi ý kiến bếp trưởng.' },
+  t2: { category: 'marketing', estimate: 12, dept: 'd4', description: 'Thiết kế hộp quà 2 kích cỡ, in thử 20 hộp.' },
+  t3: { category: 'inventory', estimate: 4, dept: 'd2' },
+  t4: { category: 'inventory', estimate: 1, dept: 'd3', startTime: '17:00', endTime: '18:00', description: 'Đếm tồn nguyên liệu và ghi vào sổ.', repeat: { freq: 'daily', interval: 1, weekdays: [], until: '' } },
+  t5: { category: 'operations', estimate: 2, dept: 'd1', repeat: { freq: 'weekly', interval: 1, weekdays: [1], until: '' } },
+  t6: { category: 'inventory', estimate: 1, dept: 'd1', startTime: '09:30', endTime: '10:30' },
+  t7: { category: 'operations', estimate: 1, dept: 'd2', startTime: '07:00', endTime: '08:00', repeat: { freq: 'daily', interval: 1, weekdays: [], until: '' } },
+  t8: { category: 'operations', estimate: 16, dept: 'd3' },
+  t9: { category: 'hr', estimate: 10, dept: 'd4' },
+  t10: { category: 'marketing', estimate: 5, dept: 'd2' },
+  t11: { category: 'inventory', estimate: 3, dept: 'd3' },
+  t12: { category: 'operations', estimate: 1, dept: 'd1', project: '', startTime: '14:00', endTime: '14:30', repeat: { freq: 'weekly', interval: 1, weekdays: [3, 6], until: '' } },
+  t13: { category: 'production', estimate: 4, dept: 'd1' },
+  t14: { category: 'hr', estimate: 8, dept: 'd4', repeat: { freq: 'monthly', interval: 1, weekdays: [], until: '' } },
+  t15: { category: 'inventory', estimate: 1, dept: 'd3', project: '', branch: 'b1', description: 'Gọi hỏi giá bơ lạt tháng sau.', status: 'todo', priority: 'low', assignee: 'e1', due: '', title: { vi: 'Gọi nhà cung cấp hỏi giá bơ', en: 'Call the butter supplier for prices' } },
+}
+export const initialTasks = [...tasksBase, { id: 't15', project: '', branch: 'b1', status: 'todo', drive: '' }].map((t) => {
+  const x = extras[t.id] || {}
+  const { dept, ...rest } = x
+  const merged = { category: 'operations', startTime: '', endTime: '', estimate: 0, description: '', note: '', repeat: noRepeat, doneDates: [], ...t, ...rest }
+  return { ...merged, department: dept ? `${dept}-${merged.branch}` : '', start: merged.due ? addDays(merged.due, -(spans[t.id] ?? 0)) : '' }
+})
 
+// approver: id tài khoản người duyệt; decidedBy / decidedAt: ghi nhận khi duyệt
 export const initialRequests = [
-  { id: 'r1', branch: 'b1', by: 'e2', type: 'leave', from: dayISO(4), to: dayISO(5), reason: { vi: 'Việc gia đình', en: 'Family matter' }, status: 'pending', drive: '' },
-  { id: 'r2', branch: 'b1', by: 'e4', type: 'shift', from: dayISO(2), to: dayISO(2), reason: { vi: 'Đổi ca chiều sang ca sáng', en: 'Swap afternoon for morning shift' }, status: 'pending', drive: '' },
-  { id: 'r3', branch: 'b2', by: 'e6', type: 'purchase', from: dayISO(1), to: dayISO(1), reason: { vi: 'Mua thêm khay nướng 60x40', en: 'Buy more 60x40 baking trays' }, status: 'approved', drive: 'https://drive.google.com/file/d/bao-gia-khay' },
-  { id: 'r4', branch: 'b3', by: 'e8', type: 'leave', from: dayISO(-6), to: dayISO(-6), reason: { vi: 'Khám sức khỏe', en: 'Medical check-up' }, status: 'rejected', drive: '' },
+  { id: 'r1', branch: 'b1', by: 'e2', approver: 'u2', type: 'leave', from: dayISO(4), to: dayISO(5), reason: { vi: 'Việc gia đình', en: 'Family matter' }, status: 'pending', drive: '' },
+  { id: 'r2', branch: 'b1', by: 'e4', approver: 'u2', type: 'shift', from: dayISO(2), to: dayISO(2), reason: { vi: 'Đổi ca chiều sang ca sáng', en: 'Swap afternoon for morning shift' }, status: 'pending', drive: '' },
+  { id: 'r3', branch: 'b2', by: 'e6', approver: 'u2', type: 'purchase', from: dayISO(1), to: dayISO(1), reason: { vi: 'Mua thêm khay nướng 60x40', en: 'Buy more 60x40 baking trays' }, status: 'approved', decidedBy: 'Trần Minh Lan', decidedAt: dayISO(-1), drive: 'https://drive.google.com/file/d/bao-gia-khay' },
+  { id: 'r4', branch: 'b3', by: 'e8', approver: 'u3', type: 'leave', from: dayISO(-6), to: dayISO(-6), reason: { vi: 'Khám sức khỏe', en: 'Medical check-up' }, status: 'rejected', decidedBy: 'Lê Quốc Bảo', decidedAt: dayISO(-7), drive: '' },
 ]
 
 export const initialReports = [
@@ -224,7 +253,7 @@ export const initialStockLog = (() => {
     for (let day = -45; day <= 0; day++) {
       if ((day + 100 + bi) % 3 !== 0) continue
       const picks = ingredients.filter((_, i) => (i + day + 100 + bi) % 4 === 0)
-      picks.forEach((ing) => out.push({ id: `sl-${b}-${day}-${ing.id}`, branch: b, ing: ing.id, qty: sizes[ing.id], date: dayISO(day) }))
+      picks.forEach((ing) => out.push({ id: `sl-${b}-${day}-${ing.id}`, branch: b, ing: ing.id, qty: sizes[ing.id], date: dayISO(day), supplier: suppliers.find((s) => s.id === ing.supplier)?.name || '' }))
     }
   })
   return out

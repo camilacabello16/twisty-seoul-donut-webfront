@@ -1,17 +1,19 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Check, Plus, Repeat } from 'lucide-react'
 import { useApp } from '../store'
 import TaskForm from '../components/TaskForm'
 import TaskCalendar from '../components/TaskCalendar'
 import { Badge, PageHeader, statusTone } from '../components/ui'
-import { dayISO, departments, parseISO } from '../data'
-import { attendanceOn, producedOn, sum, valid } from '../calc'
+import { dayISO, parseISO } from '../data'
+import { attendanceOn, producedOn, sum } from '../calc'
+import { occurrences } from '../lib/recur'
+import { computeSchedule } from '../lib/schedule'
 
 const prioRank = { high: 0, medium: 1, low: 2 }
 const statusRank = { doing: 0, todo: 1, done: 2 }
 
 export default function Calendar() {
-  const { t, L, lang, money, tasks, projects, orders, requests, employees, production, products, stockLog, ingredients, visibleBranchIds, allowedBranches, activeBranch, actions, notify } = useApp()
+  const { t, L, lang, tasks, projects, orders, requests, employees, departments, production, products, stockLog, ingredients, visibleBranchIds, allowedBranches, activeBranch, actions, notify } = useApp()
   const [form, setForm] = useState(null) // null | { date } | { task }
   const locale = lang === 'vi' ? 'vi-VN' : 'en-GB'
   const today = dayISO(0)
@@ -22,11 +24,19 @@ export default function Calendar() {
   const myProjects = projects.filter((p) => p.branches.some((b) => visibleBranchIds.includes(b)))
   const branchTasks = tasks.filter((x) => visibleBranchIds.includes(x.branch))
 
-  // Công việc đang diễn ra trong ngày (kể cả việc kéo dài nhiều ngày)
+  // Công việc đang diễn ra trong ngày (kể cả việc nhiều ngày và việc lặp lại)
   const tasksOn = (iso) =>
     branchTasks
-      .filter((x) => x.due && (x.start && x.start <= x.due ? x.start : x.due) <= iso && iso <= x.due)
-      .sort((a, b) => statusRank[a.status] - statusRank[b.status] || prioRank[a.priority] - prioRank[b.priority])
+      .flatMap((x) => occurrences(x, iso, iso))
+      .sort((a, b) => Number(a.done) - Number(b.done) || statusRank[a.status] - statusRank[b.status] || prioRank[a.priority] - prioRank[b.priority])
+
+  const schedule = (payload, iso) => {
+    const task = tasks.find((x) => x.id === payload.id)
+    if (task) {
+      actions.updateTask(task.id, computeSchedule(task, payload, iso))
+      notify(t('tasks.scheduled', { date: parseISO(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }) }))
+    }
+  }
 
   return (
     <>
@@ -42,15 +52,17 @@ export default function Calendar() {
             onSelect={setSelected}
             onCreate={(date) => setForm({ date })}
             onEdit={(task) => setForm({ task })}
+            onDropTask={schedule}
           />
         </div>
 
         <DayDetail
           iso={selected}
-          t={t} L={L} money={money} locale={locale} all={all} bname={bname}
+          t={t} L={L} locale={locale} all={all} bname={bname}
           tasks={tasksOn(selected)}
-          data={{ orders, requests, employees, production, products, stockLog, ingredients, visibleBranchIds }}
+          data={{ orders, requests, employees, departments, production, products, stockLog, ingredients, visibleBranchIds, tasks }}
           today={today}
+          actions={actions}
           onAdd={() => setForm({ date: selected })}
           onEdit={(task) => setForm({ task })}
         />
@@ -85,17 +97,15 @@ export default function Calendar() {
   )
 }
 
-function DayDetail({ iso, t, L, money, locale, all, bname, tasks, data, today, onAdd, onEdit }) {
-  const { orders, requests, employees, production, products, stockLog, ingredients, visibleBranchIds } = data
-  const dayOrders = orders.filter((o) => o.date === iso && visibleBranchIds.includes(o.branch))
-  const good = dayOrders.filter(valid)
-  const revenue = sum(good, (o) => o.total)
+function DayDetail({ iso, t, L, locale, all, bname, tasks, data, today, actions, onAdd, onEdit }) {
+  const { orders, requests, employees, departments, production, products, stockLog, ingredients, visibleBranchIds } = data
   const made = producedOn(iso, visibleBranchIds, orders, production)
   const madeTotal = sum(Object.values(made), (n) => n)
   const imports = stockLog.filter((s) => s.date === iso && visibleBranchIds.includes(s.branch))
   const { working, off } = attendanceOn(iso, visibleBranchIds, employees, requests)
-  const dept = (id) => L(departments.find((d) => d.id === id)?.name)
+  const dept = (id) => L(departments.find((d) => d.id === id)?.name) || '—'
   const date = parseISO(iso)
+  const toggle = (x) => (x.series ? actions.toggleOccurrence(x.id, x.occ) : actions.updateTask(x.id, { status: x.status === 'done' ? 'todo' : 'done' }))
 
   return (
     <aside className="day-detail" aria-label={t('cal.detail')} aria-live="polite">
@@ -105,8 +115,8 @@ function DayDetail({ iso, t, L, money, locale, all, bname, tasks, data, today, o
       </header>
 
       <dl className="day-stats">
-        <div><dt>{t('cal.orders')}</dt><dd>{good.length}{dayOrders.length > good.length && <small> (+{dayOrders.length - good.length} {t('ostatus.cancelled').toLowerCase()})</small>}</dd></div>
-        <div><dt>{t('fin.revenue')}</dt><dd>{money(revenue)}</dd></div>
+        <div><dt>{t('nav.tasks')}</dt><dd>{tasks.length}</dd></div>
+        <div><dt>{t('cal.staff')}</dt><dd>{working.length}</dd></div>
         <div><dt>{t('cal.made')}</dt><dd>{madeTotal}</dd></div>
         <div><dt>{t('cal.imported')}</dt><dd>{imports.length}</dd></div>
       </dl>
@@ -119,12 +129,13 @@ function DayDetail({ iso, t, L, money, locale, all, bname, tasks, data, today, o
         {tasks.length === 0 ? <p className="muted small">{t('cal.noTasks')}</p> : (
           <ul className="d-list">
             {tasks.map((x) => (
-              <li key={x.id}>
-                <button className="d-task" onClick={() => onEdit(x)} aria-label={`${t('tasks.edit')}: ${L(x.title)}`}>
-                  <strong>{L(x.title)}</strong>
-                  <span className="muted small">{data.employees.find((e) => e.id === x.assignee)?.name}{all && ` · ${bname(x.branch)}`}</span>
+              <li key={x.key}>
+                <button className={`lv-check ${x.done ? 'on' : ''}`} onClick={() => toggle(x)} aria-pressed={x.done} aria-label={x.done ? t('tasks.reopen') : t('tasks.complete')}><Check size={14} aria-hidden /></button>
+                <button className="d-task" onClick={() => onEdit(data.tasks.find((y) => y.id === x.id))} aria-label={`${t('tasks.edit')}: ${L(x.title)}`}>
+                  <strong className={x.done ? 'struck' : ''}>{x.series && <Repeat size={12} aria-hidden className="rep-ico" />}{L(x.title)}</strong>
+                  <span className="muted small">{employees.find((e) => e.id === x.assignee)?.name || t('tasks.unassigned')}{all && ` · ${bname(x.branch)}`}</span>
                 </button>
-                <Badge tone={statusTone[x.status]}>{t(`status.${x.status}`)}</Badge>
+                <Badge tone={statusTone[x.done ? 'done' : x.status === 'done' ? 'todo' : x.status]}>{t(`status.${x.done ? 'done' : x.status === 'done' ? 'todo' : x.status}`)}</Badge>
               </li>
             ))}
           </ul>
@@ -157,7 +168,7 @@ function DayDetail({ iso, t, L, money, locale, all, bname, tasks, data, today, o
         {madeTotal === 0 ? <p className="muted small">{iso > today ? t('cal.future') : t('common.none')}</p> : (
           <ul className="d-list tight">
             {Object.entries(made).sort((a, b) => b[1] - a[1]).map(([pid, q]) => (
-              <li key={pid}><span>{L(products.find((p) => p.id === pid).name)}</span><strong>{q}</strong></li>
+              <li key={pid}><span>{L(products.find((p) => p.id === pid)?.name)}</span><strong>{q}</strong></li>
             ))}
           </ul>
         )}
@@ -169,7 +180,12 @@ function DayDetail({ iso, t, L, money, locale, all, bname, tasks, data, today, o
           <ul className="d-list tight">
             {imports.map((s) => {
               const ing = ingredients.find((i) => i.id === s.ing)
-              return <li key={s.id}><span>{L(ing.name)}{all && <span className="muted small"> · {bname(s.branch)}</span>}</span><strong>{s.qty} {ing.unit}</strong></li>
+              return (
+                <li key={s.id}>
+                  <span>{L(ing?.name)}{s.supplier && <span className="muted small"> · {s.supplier}</span>}{all && <span className="muted small"> · {bname(s.branch)}</span>}</span>
+                  <strong>{s.qty} {ing?.unit}</strong>
+                </li>
+              )
             })}
           </ul>
         )}

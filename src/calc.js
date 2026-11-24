@@ -6,6 +6,9 @@ const costOf = Object.fromEntries(
   products.map((p) => [p.id, Object.entries(p.recipe).reduce((s, [id, q]) => s + q * ingredients.find((i) => i.id === id).cost, 0)]),
 )
 export const unitCost = (pid) => costOf[pid]
+// Giá vốn theo công thức hiện tại và danh sách nguyên liệu hiện tại (kể cả nguyên liệu mới tạo)
+export const unitCostOf = (product, ings) =>
+  Object.entries(product.recipe).reduce((s, [id, q]) => s + q * (ings.find((i) => i.id === id)?.cost || 0), 0)
 export const orderCogs = (o) => o.items.reduce((s, it) => s + it.qty * costOf[it.pid], 0)
 
 export const monthStart = () => dayISO(0).slice(0, 8) + '01'

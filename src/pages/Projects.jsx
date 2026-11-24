@@ -8,7 +8,7 @@ import { dayISO } from '../data'
 const tone = { active: 'info', paused: 'warn', done: 'ok' }
 
 export default function Projects() {
-  const { t, L, dateFmt, projects, tasks, employees, visibleBranchIds, allowedBranches, actions, notify } = useApp()
+  const { t, L, dateFmt, projects, tasks, employees, visibleBranchIds, allowedBranches, actions, notify, isStaff } = useApp()
   const [editing, setEditing] = useState(null) // null | 'new' | project
   const list = projects.filter((p) => p.branches.some((b) => visibleBranchIds.includes(b)))
   const owner = (id) => employees.find((e) => e.id === id)?.name || '—'
@@ -18,7 +18,7 @@ export default function Projects() {
       <PageHeader
         title={t('nav.projects')}
         sub={t('proj.sub')}
-        actions={<button className="btn btn-primary" onClick={() => setEditing('new')}><Plus size={16} aria-hidden /> {t('proj.new')}</button>}
+        actions={!isStaff && <button className="btn btn-primary" onClick={() => setEditing('new')}><Plus size={16} aria-hidden /> {t('proj.new')}</button>}
       />
       <div className="table-wrap">
         <table>
@@ -50,7 +50,7 @@ export default function Projects() {
                   <td><DriveLink href={p.drive} /></td>
                   <td className="num actions">
                     <Link className="btn btn-small" to={`/tasks?project=${p.id}`}>{t('proj.viewTasks')} <ArrowRight size={14} aria-hidden /></Link>
-                    <button className="icon-btn" onClick={() => setEditing(p)} aria-label={t('proj.edit')}><Pencil size={15} /></button>
+                    {!isStaff && <button className="icon-btn" onClick={() => setEditing(p)} aria-label={t('proj.edit')}><Pencil size={15} /></button>}
                   </td>
                 </tr>
               )

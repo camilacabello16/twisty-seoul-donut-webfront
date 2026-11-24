@@ -3,7 +3,8 @@ import {
   accounts as seedAccounts,
   branches,
   employees as seedEmployees,
-  ingredients,
+  ingredients as seedIngredients,
+  initialDepartments,
   initialIngredientStock,
   initialOrders,
   initialProjects,
@@ -53,7 +54,10 @@ export function AppProvider({ children }) {
   const [production, setProduction] = useState(initialProduction)
   const [reports, setReports] = useState(initialReports)
   const [products, setProducts] = useState(seedProducts)
+  const [ingredients, setIngredients] = useState(seedIngredients)
+  const [departments, setDepartments] = useState(initialDepartments)
   const [toast, setToast] = useState(null)
+  const nextId = (prefix, list) => `${prefix}${Math.max(0, ...list.map((x) => Number(String(x.id).replace(/\D/g, '')) || 0)) + 1}`
 
   const account = accounts.find((a) => a.id === accountId) || null
   const role = account?.role
@@ -134,8 +138,9 @@ export function AppProvider({ children }) {
       return id
     },
     cancelOrder: (id) => setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: 'cancelled' } : o))),
-    addRequest: (r) => setRequests((prev) => [{ ...r, id: `r${prev.length + 1}`, status: 'pending' }, ...prev]),
-    decideRequest: (id, status) => setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r))),
+    addRequest: (r) => setRequests((prev) => [{ ...r, id: nextId('r', prev), status: 'pending' }, ...prev]),
+    decideRequest: (id, status) =>
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status, decidedBy: account.name, decidedAt: toISO(new Date()) } : r))),
     // Chuyển cột và/hoặc sắp xếp lại: chèn trước task `beforeId`, hoặc cuối cột khi không có.
     moveTask: (id, status, beforeId) =>
       setTasks((prev) => {
@@ -149,18 +154,45 @@ export function AppProvider({ children }) {
       }),
     updateTask: (id, patch) => setTasks((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x))),
     deleteTask: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
-    addProject: (p) => setProjects((prev) => [...prev, { ...p, id: `pr${prev.length + 1}` }]),
+    addProject: (p) => setProjects((prev) => [...prev, { ...p, id: nextId('pr', prev) }]),
     updateProject: (id, patch) => setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))),
-    addTask: (task) => setTasks((prev) => [...prev, { ...task, id: `t${prev.length + 1}`, status: 'todo' }]),
-    addEmployee: (e) => setEmployees((prev) => [...prev, { workdays: 0, bonus: 0, deduction: 0, ...e, id: `e${prev.length + 1}` }]),
+    addTask: (task) =>
+      setTasks((prev) => [
+        ...prev,
+        { category: 'operations', startTime: '', endTime: '', estimate: 0, description: '', note: '', department: '', repeat: { freq: 'none', interval: 1, weekdays: [], until: '' }, doneDates: [], start: '', due: '', drive: '', ...task, status: task.status || 'todo', id: nextId('t', prev) },
+      ]),
+    // Đánh dấu hoàn thành một lần lặp của công việc lặp lại
+    toggleOccurrence: (id, occ) =>
+      setTasks((prev) => prev.map((x) => {
+        if (x.id !== id) return x
+        const has = (x.doneDates || []).includes(occ)
+        return { ...x, doneDates: has ? x.doneDates.filter((d) => d !== occ) : [...(x.doneDates || []), occ] }
+      })),
+    addDepartment: (d) => setDepartments((prev) => [...prev, { head: '', ...d, id: nextId('dp', prev) }]),
+    updateDepartment: (id, patch) => setDepartments((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d))),
+    // Xóa phòng ban: nhân viên và công việc thuộc phòng ban đó chuyển về "chưa phân phòng ban"
+    deleteDepartment: (id) => {
+      setDepartments((prev) => prev.filter((d) => d.id !== id))
+      setEmployees((prev) => prev.map((e) => (e.dept === id ? { ...e, dept: '' } : e)))
+      setTasks((prev) => prev.map((x) => (x.department === id ? { ...x, department: '' } : x)))
+    },
+    addIngredient: (ing) => {
+      const id = nextId('i', ingredients)
+      setIngredients((prev) => [...prev, { ...ing, id }])
+      setIngStock((prev) => Object.fromEntries(Object.entries(prev).map(([b, s]) => [b, { ...s, [id]: { qty: 0, expiry: '' } }])))
+      return id
+    },
+    addProduct: (p) => setProducts((prev) => [...prev, { ...p, id: nextId('p', prev) }]),
+    updateProduct: (id, patch) => setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))),
+    addEmployee: (e) => setEmployees((prev) => [...prev, { workdays: 0, bonus: 0, deduction: 0, ...e, id: nextId('e', prev) }]),
     updateEmployee: (id, patch) => setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))),
     setWorkdays: (id, workdays) => setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, workdays } : e))),
-    importStock: (branch, ingId, qty, expiry) => {
+    importStock: (branch, ingId, qty, expiry, supplier = '') => {
       setIngStock((prev) => ({
         ...prev,
-        [branch]: { ...prev[branch], [ingId]: { qty: (prev[branch][ingId]?.qty || 0) + qty, expiry } },
+        [branch]: { ...prev[branch], [ingId]: { qty: (prev[branch][ingId]?.qty || 0) + qty, expiry: expiry || prev[branch][ingId]?.expiry || '' } },
       }))
-      setStockLog((prev) => [...prev, { id: `sl-${prev.length + 1}`, branch, ing: ingId, qty, date: toISO(new Date()) }])
+      setStockLog((prev) => [...prev, { id: nextId('sl', prev), branch, ing: ingId, qty, date: toISO(new Date()), supplier }])
     },
     recordProduction: (rowId, qty) => {
       const row = production.find((r) => r.id === rowId)
@@ -188,8 +220,8 @@ export function AppProvider({ children }) {
     lang, setLang, t, L, money, dateFmt,
     account, role, login, logout,
     allowedBranches, canViewAll, activeBranch, setBranch, visibleBranchIds, inBranch,
-    accounts, orders, requests, tasks, projects, stockLog, employees, ingStock, prodStock, production, reports, products, ingredients,
-    canEditCatalog, actions, toast, notify,
+    accounts, orders, requests, tasks, projects, stockLog, employees, ingStock, prodStock, production, reports, products, ingredients, departments,
+    canEditCatalog, isStaff: role === 'staff', actions, toast, notify,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

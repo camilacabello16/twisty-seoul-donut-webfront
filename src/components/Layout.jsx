@@ -5,19 +5,21 @@ import {
 } from 'lucide-react'
 import { useApp } from '../store'
 
+// roles: owner = Quản lý chung, manager = Quản lý chi nhánh, staff = Nhân viên
+// hidden: true = tạm ẩn khỏi menu (đơn hàng, tài chính, báo cáo); bỏ cờ này để bật lại
 export const NAV = [
   { to: '/', key: 'nav.dashboard', icon: LayoutDashboard, roles: ['owner', 'manager'], end: true },
-  { to: '/projects', key: 'nav.projects', icon: FolderKanban, roles: ['owner', 'manager'] },
-  { to: '/calendar', key: 'nav.calendar', icon: CalendarDays, roles: ['owner', 'manager'] },
-  { to: '/tasks', key: 'nav.tasks', icon: KanbanSquare, roles: ['owner', 'manager'] },
+  { to: '/projects', key: 'nav.projects', icon: FolderKanban, roles: ['owner', 'manager', 'staff'] },
+  { to: '/calendar', key: 'nav.calendar', icon: CalendarDays, roles: ['owner', 'manager', 'staff'] },
+  { to: '/tasks', key: 'nav.tasks', icon: KanbanSquare, roles: ['owner', 'manager', 'staff'] },
   { to: '/hr', key: 'nav.hr', icon: Users, roles: ['owner', 'manager'] },
-  { to: '/products', key: 'nav.products', icon: Cookie, roles: ['owner', 'manager'] },
-  { to: '/inventory', key: 'nav.inventory', icon: Boxes, roles: ['owner', 'manager'] },
-  { to: '/production', key: 'nav.production', icon: ChefHat, roles: ['owner', 'manager'] },
-  { to: '/orders', key: 'nav.orders', icon: Receipt, roles: ['owner', 'manager', 'staff'] },
-  { to: '/finance', key: 'nav.finance', icon: Wallet, roles: ['owner', 'manager'] },
+  { to: '/products', key: 'nav.products', icon: Cookie, roles: ['owner', 'manager', 'staff'] },
+  { to: '/inventory', key: 'nav.inventory', icon: Boxes, roles: ['owner', 'manager', 'staff'] },
+  { to: '/production', key: 'nav.production', icon: ChefHat, roles: ['owner', 'manager', 'staff'] },
+  { to: '/orders', key: 'nav.orders', icon: Receipt, roles: ['owner', 'manager'], hidden: true },
+  { to: '/finance', key: 'nav.finance', icon: Wallet, roles: ['owner', 'manager'], hidden: true },
   { to: '/requests', key: 'nav.requests', icon: ClipboardList, roles: ['owner', 'manager', 'staff'] },
-  { to: '/reports', key: 'nav.reports', icon: FileText, roles: ['owner', 'manager'] },
+  { to: '/reports', key: 'nav.reports', icon: FileText, roles: ['owner', 'manager'], hidden: true },
   { to: '/settings', key: 'nav.settings', icon: Settings, roles: ['owner', 'manager'] },
 ]
 
@@ -37,9 +39,10 @@ export function Brand({ mark }) {
 }
 
 export default function Layout() {
-  const { t, L, lang, setLang, account, role, logout, allowedBranches, canViewAll, activeBranch, setBranch, toast } = useApp()
+  const { t, L, lang, setLang, account, role, logout, allowedBranches, canViewAll, activeBranch, setBranch, toast, requests, visibleBranchIds } = useApp()
   const [open, setOpen] = useState(false)
-  const items = NAV.filter((n) => n.roles.includes(role))
+  const items = NAV.filter((n) => !n.hidden && n.roles.includes(role))
+  const pendingApprovals = requests.filter((r) => r.status === 'pending' && r.approver === account.id && visibleBranchIds.includes(r.branch)).length
 
   return (
     <div className="shell">
@@ -55,6 +58,7 @@ export default function Layout() {
             <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Icon size={18} aria-hidden />
               <span>{t(key)}</span>
+              {to === '/requests' && pendingApprovals > 0 && <span className="nav-badge" aria-label={t('req.pendingBadge', { n: pendingApprovals })}>{pendingApprovals}</span>}
             </NavLink>
           ))}
         </nav>

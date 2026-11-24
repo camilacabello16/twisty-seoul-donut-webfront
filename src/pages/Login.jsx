@@ -22,7 +22,7 @@ export default function Login() {
   const submit = (e) => {
     e.preventDefault()
     login(id, branch)
-    nav(acc.role === 'staff' ? '/orders' : '/', { replace: true })
+    nav(acc.role === 'staff' ? '/tasks' : '/', { replace: true })
   }
 
   return (

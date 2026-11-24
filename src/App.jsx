@@ -31,11 +31,11 @@ export default function App() {
       </Routes>
     )
   }
-  const home = role === 'staff' ? '/orders' : '/'
+  const home = role === 'staff' ? '/tasks' : '/'
   return (
     <Routes>
       <Route element={<Layout />}>
-        {NAV.filter((n) => n.roles.includes(role)).map((n) => {
+        {NAV.filter((n) => !n.hidden && n.roles.includes(role)).map((n) => {
           const Page = pages[n.to]
           return <Route key={n.to} path={n.to} element={<Page />} />
         })}
